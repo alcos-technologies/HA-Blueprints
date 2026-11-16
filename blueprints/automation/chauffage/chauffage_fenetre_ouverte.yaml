@@ -1,0 +1,191 @@
+blueprint:
+  name: Chauffage – fermeture sur porte/fenêtre ouverte
+  description: >
+    Coupe le chauffage d'une pièce quand une porte ou une fenêtre choisie reste
+    ouverte plus longtemps que le délai réglé, puis rétablit l'état précédent
+    quand **toutes** les portes et fenêtres choisies sont refermées depuis le
+    délai réglé.
+
+
+    **Fonctionnement**
+
+    - Ouverture : l'état actuel des thermostats (mode et consigne) est
+      mémorisé dans une scène temporaire, puis le chauffage est coupé
+      (mode « off ») ou abaissé à une consigne réduite.
+
+    - Fermeture : la scène est réappliquée (mode et consigne d'origine), puis
+      supprimée.
+
+    - Un thermostat déjà éteint avant l'ouverture reste éteint après la
+      fermeture.
+
+
+    **Limite** : la scène temporaire ne survit pas à un redémarrage de Home
+    Assistant. Si HA redémarre pendant qu'une fenêtre est ouverte, le
+    chauffage n'est pas rétabli automatiquement.
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    section_pieces:
+      name: Capteurs et thermostats
+      icon: mdi:window-open-variant
+      input:
+        capteurs:
+          name: Capteurs de porte/fenêtre
+          description: Un ou plusieurs capteurs de la pièce (Zigbee, Wi-Fi, etc.).
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: binary_sensor
+                  device_class:
+                    - door
+                    - window
+                    - opening
+                    - garage_door
+        thermostats:
+          name: Thermostats de la pièce
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: climate
+
+    section_delais:
+      name: Délais
+      icon: mdi:timer-outline
+      input:
+        delai_ouverture:
+          name: Délai avant coupure
+          description: Durée pendant laquelle un capteur doit rester ouvert.
+          default:
+            minutes: 1
+          selector:
+            duration: {}
+        delai_fermeture:
+          name: Délai avant rétablissement
+          description: Durée pendant laquelle tous les capteurs doivent rester fermés.
+          default:
+            minutes: 1
+          selector:
+            duration: {}
+
+    section_action:
+      name: Action à l'ouverture
+      icon: mdi:radiator-off
+      input:
+        type_action:
+          name: Type d'action
+          description: >
+            « Éteindre » met les thermostats en mode off. « Consigne réduite » est
+            utile pour les thermostats qui ne supportent pas le mode off.
+          default: "off"
+          selector:
+            select:
+              options:
+                - label: Éteindre (mode off)
+                  value: "off"
+                - label: Consigne réduite
+                  value: "consigne"
+        consigne_reduite:
+          name: Consigne réduite
+          description: Utilisée seulement avec « Consigne réduite ».
+          default: 7
+          selector:
+            number:
+              min: 5
+              max: 20
+              step: 0.5
+              mode: box
+              unit_of_measurement: "°C"
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+variables:
+  capteurs: !input capteurs
+  thermostats: !input thermostats
+  type_action: !input type_action
+  consigne_reduite: !input consigne_reduite
+  scene_id: "{{ this.entity_id | replace('automation.', '') }}_snapshot"
+  scene_entity: "scene.{{ scene_id }}"
+
+triggers:
+  - trigger: state
+    entity_id: !input capteurs
+    to: "on"
+    for: !input delai_ouverture
+    id: ouvert
+  - trigger: state
+    entity_id: !input capteurs
+    to: "off"
+    for: !input delai_fermeture
+    id: ferme
+
+conditions: []
+
+actions:
+  - choose:
+      # ---------- Ouverture ----------
+      - conditions:
+          - condition: trigger
+            id: ouvert
+          # Ne pas écraser la mémorisation si le chauffage est déjà coupé
+          - condition: template
+            value_template: >
+              {{ states.scene | selectattr('entity_id', 'eq', scene_entity)
+                 | list | count == 0 }}
+        sequence:
+          - action: scene.create
+            data:
+              scene_id: "{{ scene_id }}"
+              snapshot_entities: "{{ thermostats }}"
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ type_action == 'off' }}"
+                sequence:
+                  - action: climate.set_hvac_mode
+                    target:
+                      entity_id: "{{ thermostats }}"
+                    data:
+                      hvac_mode: "off"
+            default:
+              - action: climate.set_temperature
+                target:
+                  entity_id: "{{ thermostats }}"
+                data:
+                  temperature: "{{ consigne_reduite }}"
+          - action: logbook.log
+            data:
+              name: Chauffage
+              message: >
+                Coupé : {{ capteurs | select('is_state', 'on')
+                | map('state_attr', 'friendly_name') | join(', ') }} ouvert(s).
+
+      # ---------- Fermeture ----------
+      - conditions:
+          - condition: trigger
+            id: ferme
+          # Tous les capteurs doivent être fermés
+          - condition: template
+            value_template: >
+              {{ capteurs | select('is_state', 'on') | list | count == 0 }}
+          # Seulement si c'est cette automatisation qui a coupé le chauffage
+          - condition: template
+            value_template: >
+              {{ states.scene | selectattr('entity_id', 'eq', scene_entity)
+                 | list | count > 0 }}
+        sequence:
+          - action: scene.turn_on
+            target:
+              entity_id: "{{ scene_entity }}"
+          - action: scene.delete
+            target:
+              entity_id: "{{ scene_entity }}"
+          - action: logbook.log
+            data:
+              name: Chauffage
+              message: Rétabli, toutes les portes/fenêtres sont fermées.
