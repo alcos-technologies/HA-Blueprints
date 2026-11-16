@@ -1,0 +1,163 @@
+blueprint:
+  name: Lumières au retour à la maison (après une absence)
+  description: >
+    Allume des lumières quand on revient à la maison après une absence d'au
+    moins X minutes, seulement s'il fait noir.
+
+
+    **Fonctionnement**
+
+    1. **Départ** : l'entité de départ (ex. `person.alexandre`) est « absente »
+       depuis la durée réglée (15 min par défaut).
+
+    2. **Attente du retour** : l'automatisation attend que l'entité de retour
+       (ex. un `device_tracker` Wi-Fi, plus rapide que le GPS) passe à
+       « home ».
+
+    3. **Retour** : s'il fait noir (soleil sous l'élévation réglée), les
+       lumières s'allument.
+
+
+    Des actions facultatives peuvent être ajoutées au départ et au retour
+    (ex. armer ou désarmer une alarme).
+
+
+    **Limite** : l'attente du retour ne survit pas à un redémarrage de Home
+    Assistant ni à un rechargement des automatisations.
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    section_presence:
+      name: Présence
+      icon: mdi:account-arrow-right
+      input:
+        entite_depart:
+          name: Entité de départ
+          description: >
+            Entité qui détermine le départ. Une entité `person` est recommandée
+            (combine GPS et Wi-Fi, peu de fausses absences).
+          selector:
+            entity:
+              filter:
+                - domain:
+                    - person
+                    - device_tracker
+        duree_absence:
+          name: Durée d'absence minimale
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+        entite_retour:
+          name: Entité de retour
+          description: >
+            Entité qui détecte le retour. Un `device_tracker` Wi-Fi (routeur)
+            réagit souvent plus vite que le GPS. Peut être la même que
+            l'entité de départ.
+          selector:
+            entity:
+              filter:
+                - domain:
+                    - person
+                    - device_tracker
+        attente_max:
+          name: Durée maximale d'absence
+          description: Au-delà, l'automatisation cesse d'attendre le retour.
+          default:
+            hours: 24
+          selector:
+            duration: {}
+
+    section_lumieres:
+      name: Lumières
+      icon: mdi:lightbulb-group
+      input:
+        lumieres:
+          name: Lumières à allumer
+          description: Lumières, interrupteurs ou pièces.
+          selector:
+            target:
+              entity:
+                - domain:
+                    - light
+                    - switch
+        elevation_max:
+          name: Élévation maximale du soleil
+          description: >
+            Les lumières s'allument seulement si le soleil est sous cette
+            élévation. 0° = coucher du soleil; -6° = fin du crépuscule civil
+            (plus sombre); 3° = un peu avant le coucher.
+          default: 0
+          selector:
+            number:
+              min: -18
+              max: 20
+              step: 0.5
+              mode: slider
+              unit_of_measurement: "°"
+
+    section_actions:
+      name: Actions supplémentaires (facultatives)
+      icon: mdi:script-text-outline
+      collapsed: true
+      input:
+        actions_depart:
+          name: Actions au départ
+          description: Exécutées une fois l'absence confirmée (ex. armer l'alarme).
+          default: []
+          selector:
+            action: {}
+        actions_retour:
+          name: Actions au retour
+          description: Exécutées à chaque retour, de jour comme de nuit (ex. désarmer l'alarme).
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+variables:
+  elevation_max: !input elevation_max
+
+triggers:
+  - trigger: state
+    entity_id: !input entite_depart
+    to: not_home
+    for: !input duree_absence
+
+conditions: []
+
+actions:
+  - action: logbook.log
+    data:
+      name: Retour à la maison
+      message: Absence confirmée, en attente du retour.
+  - sequence: !input actions_depart
+
+  - wait_for_trigger:
+      - trigger: state
+        entity_id: !input entite_retour
+        to: home
+    timeout: !input attente_max
+    continue_on_timeout: false
+
+  - if:
+      - condition: template
+        value_template: >
+          {{ state_attr('sun.sun', 'elevation') | float(90) < elevation_max | float }}
+    then:
+      - action: homeassistant.turn_on
+        target: !input lumieres
+      - action: logbook.log
+        data:
+          name: Retour à la maison
+          message: Retour détecté, lumières allumées.
+    else:
+      - action: logbook.log
+        data:
+          name: Retour à la maison
+          message: Retour détecté, il fait jour, lumières non allumées.
+
+  - sequence: !input actions_retour

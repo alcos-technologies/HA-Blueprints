@@ -6,6 +6,7 @@ Ma collection de blueprints [Home Assistant](https://www.home-assistant.io/), pr
 |---|---|
 | [Capteur mmWave – profils selon seuils](#-capteur-mmwave-24-ghz--profils-selon-seuils) | Ajuste les réglages d'un capteur de présence mmWave selon la température, l'humidité ou la luminosité |
 | [Chauffage – fermeture sur porte/fenêtre ouverte](#-chauffage--fermeture-sur-portefenêtre-ouverte) | Coupe le chauffage d'une pièce quand une porte ou une fenêtre reste ouverte, puis le rétablit à la fermeture |
+| [Lumières au retour à la maison](#-lumières-au-retour-à-la-maison) | Allume des lumières à votre retour après une absence, seulement s'il fait noir |
 
 ---
 
@@ -124,6 +125,54 @@ Le blueprint fonctionne avec tout capteur d'ouverture (Zigbee, Z-Wave, Wi-Fi, Ma
 - Créez **une automatisation par pièce**.
 - Les réglages d'origine sont mémorisés dans une scène temporaire, qui disparaît si Home Assistant redémarre. Si HA redémarre pendant qu'une fenêtre est ouverte, le chauffage n'est pas rétabli automatiquement.
 - Ne changez pas l'`entity_id` de l'automatisation pendant qu'une fenêtre est ouverte. La renommer ne pose aucun problème.
+
+---
+
+## 🏠 Lumières au retour à la maison
+
+[![Importer dans Home Assistant](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Falcos-technologies%2FHA-Blueprints%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fpresence%2Flumieres_retour_maison.yaml)
+
+```
+https://github.com/alcos-technologies/HA-Blueprints/blob/main/blueprints/automation/presence/lumieres_retour_maison.yaml
+```
+
+### À quoi ça sert
+
+Vous ne rentrez plus dans le noir. Quand vous revenez à la maison après une absence d'au moins 15 minutes (durée réglable) et qu'il fait nuit, les lumières choisies s'allument d'elles-mêmes.
+
+Ce blueprint remplace la paire d'automatisations « départ » / « retour » où l'une active l'autre.
+
+### Fonctionnement
+
+1. **Départ :** l'entité de départ (par exemple `person.alexandre`) est absente depuis la durée réglée.
+2. **Attente :** l'automatisation attend que l'entité de retour passe à « home ».
+3. **Retour :** si le soleil est sous l'élévation réglée, les lumières s'allument.
+
+- Les entités de départ et de retour peuvent être différentes. Par exemple :
+  - au départ, une entité `person`, plus fiable, qui évite les fausses absences quand le téléphone met son Wi-Fi en veille ;
+  - au retour, un `device_tracker` Wi-Fi du routeur, plus rapide que le GPS.
+- Une absence de moins de 15 minutes (aller chercher le courrier, par exemple) ne déclenche rien.
+- Chaque étape est inscrite dans le journal (logbook).
+
+### Paramètres
+
+| Section | Paramètres |
+|---|---|
+| Présence | Entité de départ, durée d'absence minimale (15 min), entité de retour, durée maximale d'absence (24 h) |
+| Lumières | Lumières, interrupteurs ou pièces à allumer; élévation maximale du soleil (0° par défaut) |
+| Actions supplémentaires | Actions facultatives au départ et au retour (par exemple, armer ou désarmer une alarme) |
+
+**Élévation du soleil :** à 0°, les lumières s'allument à partir du coucher du soleil. Une valeur négative (-6°, par exemple) attend qu'il fasse plus sombre. Une valeur positive (3°, par exemple) les allume un peu avant le coucher.
+
+### Compatibilité
+
+Le blueprint fonctionne avec toute entité `person` ou `device_tracker` (application mobile, routeur, Bluetooth, etc.) et toute lumière ou tout interrupteur (`light`, `switch`), peu importe le réseau.
+
+### À savoir
+
+- Créez une automatisation par personne.
+- L'attente du retour ne survit pas à un redémarrage de Home Assistant ni à un rechargement des automatisations. Si l'un ou l'autre se produit pendant votre absence, les lumières ne s'allumeront pas à ce retour-là.
+- Au-delà de la durée maximale d'absence, l'automatisation cesse d'attendre. Rien ne s'allume alors au retour.
 
 ---
 
