@@ -1,0 +1,257 @@
+blueprint:
+  name: Capteur mmWave 24 GHz – profils selon seuils (Zigbee2MQTT)
+  description: >
+    Applique un profil de réglages au capteur de présence mmWave 24 GHz (T&H)
+    selon la valeur d'un capteur choisi (température, humidité ou illuminance).
+
+
+    **Logique**
+
+    - Valeur sous le seuil le plus bas → profil de ce seuil.
+
+    - Valeur sous l'autre seuil seulement → profil de cet autre seuil.
+
+    - Valeur au-dessus des deux seuils → profil « normal » (facultatif).
+
+
+    Les réglages sont envoyés seulement quand la valeur **franchit** un seuil
+    (et y reste pendant le délai de stabilisation), pour ménager la pile.
+    Exécuter l'automatisation manuellement applique le profil correspondant à
+    la valeur actuelle.
+
+
+    Réglages envoyés par MQTT à `<topic de base>/<friendly name>/set` :
+    motion_detection_sensitivity, static_detection_sensitivity,
+    anti_interference, fading_time, detection_distance.
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    section_capteur:
+      name: Capteur et appareil
+      icon: mdi:radar
+      input:
+        source_sensor:
+          name: Capteur déclencheur
+          description: Capteur dont la valeur est comparée aux seuils.
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class:
+                    - temperature
+                    - humidity
+                    - illuminance
+        z2m_base_topic:
+          name: Topic de base Zigbee2MQTT
+          default: zigbee2mqtt
+          selector:
+            text: {}
+        z2m_friendly_name:
+          name: Friendly name Zigbee2MQTT du capteur mmWave
+          description: Nom exact de l'appareil dans Zigbee2MQTT (sensible à la casse).
+          selector:
+            text: {}
+        delai:
+          name: Délai de stabilisation
+          description: Durée pendant laquelle la valeur doit rester au-delà du seuil.
+          default:
+            minutes: 2
+          selector:
+            duration: {}
+
+    section_seuil_1:
+      name: Seuil 1 et son profil
+      icon: mdi:numeric-1-circle
+      input:
+        seuil_1:
+          name: Seuil 1
+          description: Le profil 1 s'applique quand la valeur est sous ce seuil.
+          default: 20
+          selector:
+            number:
+              min: -50
+              max: 100000
+              step: 0.1
+              mode: box
+        p1_motion:
+          name: Sensibilité mouvement (motion_detection_sensitivity)
+          default: 7
+          selector:
+            number: {min: 0, max: 10, step: 1, mode: slider}
+        p1_static:
+          name: Sensibilité statique (static_detection_sensitivity)
+          default: 7
+          selector:
+            number: {min: 0, max: 10, step: 1, mode: slider}
+        p1_anti:
+          name: Anti-interférence (anti_interference)
+          default: "OFF"
+          selector:
+            select:
+              options: ["ON", "OFF"]
+        p1_fading:
+          name: Délai d'absence (fading_time, s)
+          default: 30
+          selector:
+            number: {min: 0, max: 28800, step: 1, mode: box, unit_of_measurement: s}
+        p1_distance:
+          name: Distance de détection (detection_distance, m)
+          default: 2.04
+          selector:
+            number: {min: 0, max: 10, step: 0.01, mode: box, unit_of_measurement: m}
+
+    section_seuil_2:
+      name: Seuil 2 et son profil
+      icon: mdi:numeric-2-circle
+      input:
+        seuil_2:
+          name: Seuil 2
+          description: Le profil 2 s'applique quand la valeur est sous ce seuil.
+          default: 10
+          selector:
+            number:
+              min: -50
+              max: 100000
+              step: 0.1
+              mode: box
+        p2_motion:
+          name: Sensibilité mouvement (motion_detection_sensitivity)
+          default: 7
+          selector:
+            number: {min: 0, max: 10, step: 1, mode: slider}
+        p2_static:
+          name: Sensibilité statique (static_detection_sensitivity)
+          default: 7
+          selector:
+            number: {min: 0, max: 10, step: 1, mode: slider}
+        p2_anti:
+          name: Anti-interférence (anti_interference)
+          default: "OFF"
+          selector:
+            select:
+              options: ["ON", "OFF"]
+        p2_fading:
+          name: Délai d'absence (fading_time, s)
+          default: 30
+          selector:
+            number: {min: 0, max: 28800, step: 1, mode: box, unit_of_measurement: s}
+        p2_distance:
+          name: Distance de détection (detection_distance, m)
+          default: 2.04
+          selector:
+            number: {min: 0, max: 10, step: 0.01, mode: box, unit_of_measurement: m}
+
+    section_normal:
+      name: Profil normal (au-dessus des deux seuils)
+      icon: mdi:restore
+      collapsed: true
+      input:
+        normal_actif:
+          name: Activer le retour au profil normal
+          default: true
+          selector:
+            boolean: {}
+        pn_motion:
+          name: Sensibilité mouvement (motion_detection_sensitivity)
+          default: 7
+          selector:
+            number: {min: 0, max: 10, step: 1, mode: slider}
+        pn_static:
+          name: Sensibilité statique (static_detection_sensitivity)
+          default: 7
+          selector:
+            number: {min: 0, max: 10, step: 1, mode: slider}
+        pn_anti:
+          name: Anti-interférence (anti_interference)
+          default: "OFF"
+          selector:
+            select:
+              options: ["ON", "OFF"]
+        pn_fading:
+          name: Délai d'absence (fading_time, s)
+          default: 30
+          selector:
+            number: {min: 0, max: 28800, step: 1, mode: box, unit_of_measurement: s}
+        pn_distance:
+          name: Distance de détection (detection_distance, m)
+          default: 2.04
+          selector:
+            number: {min: 0, max: 10, step: 0.01, mode: box, unit_of_measurement: m}
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  source: !input source_sensor
+  s1: !input seuil_1
+  s2: !input seuil_2
+  normal_actif: !input normal_actif
+  base_topic: !input z2m_base_topic
+  friendly_name: !input z2m_friendly_name
+  profils:
+    p1:
+      motion_detection_sensitivity: !input p1_motion
+      static_detection_sensitivity: !input p1_static
+      anti_interference: !input p1_anti
+      fading_time: !input p1_fading
+      detection_distance: !input p1_distance
+    p2:
+      motion_detection_sensitivity: !input p2_motion
+      static_detection_sensitivity: !input p2_static
+      anti_interference: !input p2_anti
+      fading_time: !input p2_fading
+      detection_distance: !input p2_distance
+    normal:
+      motion_detection_sensitivity: !input pn_motion
+      static_detection_sensitivity: !input pn_static
+      anti_interference: !input pn_anti
+      fading_time: !input pn_fading
+      detection_distance: !input pn_distance
+
+triggers:
+  - trigger: numeric_state
+    entity_id: !input source_sensor
+    below: !input seuil_1
+    for: !input delai
+  - trigger: numeric_state
+    entity_id: !input source_sensor
+    above: !input seuil_1
+    for: !input delai
+  - trigger: numeric_state
+    entity_id: !input source_sensor
+    below: !input seuil_2
+    for: !input delai
+  - trigger: numeric_state
+    entity_id: !input source_sensor
+    above: !input seuil_2
+    for: !input delai
+
+conditions: []
+
+actions:
+  - variables:
+      valeur: "{{ states(source) | float(none) }}"
+      zone: >
+        {% set v = states(source) | float(none) %}
+        {% set a = s1 | float %}
+        {% set b = s2 | float %}
+        {% if v is none %}aucune
+        {% elif v < a and v < b %}{{ 'p1' if a <= b else 'p2' }}
+        {% elif v < a %}p1
+        {% elif v < b %}p2
+        {% else %}normal
+        {% endif %}
+  - condition: template
+    value_template: >
+      {{ zone in ['p1', 'p2'] or (zone == 'normal' and normal_actif) }}
+  - action: mqtt.publish
+    data:
+      topic: "{{ base_topic }}/{{ friendly_name }}/set"
+      payload: "{{ profils[zone] | to_json }}"
+  - action: logbook.log
+    data:
+      name: "mmWave {{ friendly_name }}"
+      message: >
+        Profil {{ zone }} appliqué ({{ state_attr(source, 'friendly_name') }} =
+        {{ valeur }}) : {{ profils[zone] | to_json }}
