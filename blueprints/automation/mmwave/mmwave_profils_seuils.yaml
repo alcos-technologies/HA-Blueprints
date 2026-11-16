@@ -7,11 +7,14 @@ blueprint:
 
     **Logique**
 
-    - Valeur sous le seuil le plus bas → profil de ce seuil.
+    - Valeur **au-dessus** du seuil 1 → profil 1.
 
-    - Valeur sous l'autre seuil seulement → profil de cet autre seuil.
+    - Valeur **sous** le seuil 2 → profil 2.
 
-    - Valeur au-dessus des deux seuils → profil « normal » (facultatif).
+    - Valeur entre les deux seuils → profil « normal » (facultatif).
+
+    - Le seuil 1 doit être plus élevé que le seuil 2. Si les plages se
+      chevauchent, le profil 1 a priorité.
 
 
     Les réglages sont envoyés seulement quand la valeur **franchit** un seuil
@@ -61,13 +64,13 @@ blueprint:
             duration: {}
 
     section_seuil_1:
-      name: Seuil 1 et son profil
-      icon: mdi:numeric-1-circle
+      name: Seuil 1 (au-dessus) et son profil
+      icon: mdi:arrow-up-bold-circle
       input:
         seuil_1:
           name: Seuil 1
-          description: Le profil 1 s'applique quand la valeur est sous ce seuil.
-          default: 20
+          description: Le profil 1 s'applique quand la valeur est au-dessus de ce seuil.
+          default: 25
           selector:
             number:
               min: -50
@@ -102,13 +105,13 @@ blueprint:
             number: {min: 0, max: 10, step: 0.01, mode: box, unit_of_measurement: m}
 
     section_seuil_2:
-      name: Seuil 2 et son profil
-      icon: mdi:numeric-2-circle
+      name: Seuil 2 (en dessous) et son profil
+      icon: mdi:arrow-down-bold-circle
       input:
         seuil_2:
           name: Seuil 2
           description: Le profil 2 s'applique quand la valeur est sous ce seuil.
-          default: 10
+          default: 15
           selector:
             number:
               min: -50
@@ -143,12 +146,12 @@ blueprint:
             number: {min: 0, max: 10, step: 0.01, mode: box, unit_of_measurement: m}
 
     section_normal:
-      name: Profil normal (au-dessus des deux seuils)
+      name: Profil normal (entre les deux seuils)
       icon: mdi:restore
       collapsed: true
       input:
         normal_actif:
-          name: Activer le retour au profil normal
+          name: Activer le profil normal (entre les seuils)
           default: true
           selector:
             boolean: {}
@@ -237,8 +240,7 @@ actions:
         {% set a = s1 | float %}
         {% set b = s2 | float %}
         {% if v is none %}aucune
-        {% elif v < a and v < b %}{{ 'p1' if a <= b else 'p2' }}
-        {% elif v < a %}p1
+        {% elif v > a %}p1
         {% elif v < b %}p2
         {% else %}normal
         {% endif %}

@@ -4,7 +4,7 @@ Blueprints Home Assistant.
 
 | Blueprint | Description |
 |---|---|
-| [mmwave_profils_seuils](blueprints/automation/mmwave/mmwave_profils_seuils.yaml) | Capteur mmWave 24 GHz (Zigbee2MQTT) : applique des profils de réglages (sensibilités, anti-interférence, fading_time, detection_distance) selon des seuils de température, d'humidité ou d'illuminance. |
+| [mmwave_profils_seuils](blueprints/automation/mmwave/mmwave_profils_seuils.yaml) | Capteur mmWave 24 GHz (Zigbee2MQTT) : applique un profil au-dessus du seuil 1, un autre sous le seuil 2 et un profil normal entre les deux (température, humidité ou illuminance). |
 
 ## Installation
 
