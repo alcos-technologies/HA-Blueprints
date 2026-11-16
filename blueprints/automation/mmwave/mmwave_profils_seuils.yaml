@@ -1,5 +1,5 @@
 blueprint:
-  name: Capteur mmWave 24 GHz – profils selon seuils (Zigbee2MQTT)
+  name: Capteur mmWave 24 GHz – profils selon seuils
   description: >
     Applique un profil de réglages au capteur de présence mmWave 24 GHz (T&H)
     selon la valeur d'un capteur choisi (température, humidité ou illuminance).
@@ -23,9 +23,13 @@ blueprint:
     la valeur actuelle.
 
 
-    Réglages envoyés par MQTT à `<topic de base>/<friendly name>/set` :
-    motion_detection_sensitivity, static_detection_sensitivity,
-    anti_interference, fading_time, detection_distance.
+    **Compatible avec tout type de réseau** (Zigbee2MQTT, ZHA, Z-Wave, Wi-Fi,
+    Matter, etc.) : on choisit directement l'entité de chaque réglage. Un
+    réglage dont l'entité est laissée vide n'est pas modifié.
+
+    - Sensibilités, délai d'absence, distance : entités `number`.
+
+    - Anti-interférence : entité `switch` ou `select` (option ON/OFF).
   domain: automation
   homeassistant:
     min_version: 2024.10.0
@@ -45,16 +49,6 @@ blueprint:
                     - temperature
                     - humidity
                     - illuminance
-        z2m_base_topic:
-          name: Topic de base Zigbee2MQTT
-          default: zigbee2mqtt
-          selector:
-            text: {}
-        z2m_friendly_name:
-          name: Friendly name Zigbee2MQTT du capteur mmWave
-          description: Nom exact de l'appareil dans Zigbee2MQTT (sensible à la casse).
-          selector:
-            text: {}
         delai:
           name: Délai de stabilisation
           description: Durée pendant laquelle la valeur doit rester au-delà du seuil.
@@ -62,6 +56,49 @@ blueprint:
             minutes: 2
           selector:
             duration: {}
+
+    section_entites:
+      name: Entités de réglage du capteur mmWave
+      icon: mdi:tune-variant
+      description: Laisser vide un réglage pour ne pas le modifier.
+      input:
+        ent_motion:
+          name: Sensibilité mouvement (motion_detection_sensitivity)
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: number
+        ent_static:
+          name: Sensibilité statique (static_detection_sensitivity)
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: number
+        ent_anti:
+          name: Anti-interférence (anti_interference)
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain:
+                    - switch
+                    - select
+        ent_fading:
+          name: Délai d'absence (fading_time)
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: number
+        ent_distance:
+          name: Distance de détection (detection_distance)
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: number
 
     section_seuil_1:
       name: Seuil 1 (au-dessus) et son profil
@@ -190,8 +227,11 @@ variables:
   s1: !input seuil_1
   s2: !input seuil_2
   normal_actif: !input normal_actif
-  base_topic: !input z2m_base_topic
-  friendly_name: !input z2m_friendly_name
+  ent_motion: !input ent_motion
+  ent_static: !input ent_static
+  ent_anti: !input ent_anti
+  ent_fading: !input ent_fading
+  ent_distance: !input ent_distance
   profils:
     p1:
       motion_detection_sensitivity: !input p1_motion
@@ -247,13 +287,69 @@ actions:
   - condition: template
     value_template: >
       {{ zone in ['p1', 'p2'] or (zone == 'normal' and normal_actif) }}
-  - action: mqtt.publish
-    data:
-      topic: "{{ base_topic }}/{{ friendly_name }}/set"
-      payload: "{{ profils[zone] | to_json }}"
+  - variables:
+      p: "{{ profils[zone] }}"
+  - if: "{{ ent_motion not in ['', none] }}"
+    then:
+      - action: number.set_value
+        continue_on_error: true
+        target:
+          entity_id: "{{ ent_motion }}"
+        data:
+          value: "{{ p.motion_detection_sensitivity }}"
+  - if: "{{ ent_static not in ['', none] }}"
+    then:
+      - action: number.set_value
+        continue_on_error: true
+        target:
+          entity_id: "{{ ent_static }}"
+        data:
+          value: "{{ p.static_detection_sensitivity }}"
+  - if: "{{ ent_fading not in ['', none] }}"
+    then:
+      - action: number.set_value
+        continue_on_error: true
+        target:
+          entity_id: "{{ ent_fading }}"
+        data:
+          value: "{{ p.fading_time }}"
+  - if: "{{ ent_distance not in ['', none] }}"
+    then:
+      - action: number.set_value
+        continue_on_error: true
+        target:
+          entity_id: "{{ ent_distance }}"
+        data:
+          value: "{{ p.detection_distance }}"
+  - if: "{{ ent_anti not in ['', none] }}"
+    then:
+      - choose:
+          - conditions: "{{ ent_anti.startswith('switch.') }}"
+            sequence:
+              - action: "switch.turn_{{ 'on' if p.anti_interference == 'ON' else 'off' }}"
+                continue_on_error: true
+                target:
+                  entity_id: "{{ ent_anti }}"
+          - conditions: "{{ ent_anti.startswith('select.') }}"
+            sequence:
+              - variables:
+                  option_anti: >
+                    {% set voulu = ['on', 'true', '1', 'enable', 'enabled', 'activé']
+                       if p.anti_interference == 'ON'
+                       else ['off', 'false', '0', 'disable', 'disabled', 'désactivé'] %}
+                    {% for o in state_attr(ent_anti, 'options') or []
+                       if (o | string | lower) in voulu %}{% if loop.first %}{{ o }}{% endif %}{% endfor %}
+              - if: "{{ option_anti != '' }}"
+                then:
+                  - action: select.select_option
+                    continue_on_error: true
+                    target:
+                      entity_id: "{{ ent_anti }}"
+                    data:
+                      option: "{{ option_anti }}"
   - action: logbook.log
     data:
-      name: "mmWave {{ friendly_name }}"
+      name: "mmWave"
       message: >
         Profil {{ zone }} appliqué ({{ state_attr(source, 'friendly_name') }} =
-        {{ valeur }}) : {{ profils[zone] | to_json }}
+        {{ valeur }}) : {{ p | to_json }}
