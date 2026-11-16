@@ -134,7 +134,8 @@ actions:
     data:
       name: Retour à la maison
       message: Absence confirmée, en attente du retour.
-  - sequence: !input actions_depart
+  - choose: []
+    default: !input actions_depart
 
   - wait_for_trigger:
       - trigger: state
@@ -160,4 +161,5 @@ actions:
           name: Retour à la maison
           message: Retour détecté, il fait jour, lumières non allumées.
 
-  - sequence: !input actions_retour
+  - choose: []
+    default: !input actions_retour
