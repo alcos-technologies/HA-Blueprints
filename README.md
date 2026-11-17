@@ -144,13 +144,11 @@ Ce blueprint remplace la paire d'automatisations « départ » / « retour » o�
 
 ### Fonctionnement
 
-1. **Départ :** l'entité de départ (par exemple `person.alexandre`) est absente depuis la durée réglée.
-2. **Attente :** l'automatisation attend que l'entité de retour passe à « home ».
+1. **Départ :** l'entité de présence (par exemple `person.alexandre`) est absente depuis la durée réglée.
+2. **Attente :** l'automatisation attend que la même entité repasse à « home ».
 3. **Retour :** si le soleil est sous l'élévation réglée, les lumières s'allument.
 
-- Les entités de départ et de retour peuvent être différentes. Par exemple :
-  - au départ, une entité `person`, plus fiable, qui évite les fausses absences quand le téléphone met son Wi-Fi en veille ;
-  - au retour, un `device_tracker` Wi-Fi du routeur, plus rapide que le GPS.
+- Une seule entité sert à détecter le départ et le retour.
 - Une absence de moins de 15 minutes (aller chercher le courrier, par exemple) ne déclenche rien.
 - Chaque étape est inscrite dans le journal (logbook).
 
@@ -158,7 +156,7 @@ Ce blueprint remplace la paire d'automatisations « départ » / « retour » o�
 
 | Section | Paramètres |
 |---|---|
-| Présence | Entité de départ, durée d'absence minimale (15 min), entité de retour, durée maximale d'absence (24 h) |
+| Présence | Entité de présence, durée d'absence minimale (15 min), durée maximale d'absence (24 h) |
 | Lumières | Lumières, interrupteurs ou pièces à allumer; élévation maximale du soleil (0° par défaut) |
 | Actions supplémentaires | Actions facultatives au départ et au retour (par exemple, armer ou désarmer une alarme) |
 

@@ -7,12 +7,11 @@ blueprint:
 
     **Fonctionnement**
 
-    1. **Départ** : l'entité de départ (ex. `person.alexandre`) est « absente »
-       depuis la durée réglée (15 min par défaut).
+    1. **Départ** : l'entité de présence (ex. `person.alexandre`) est
+       « absente » depuis la durée réglée (15 min par défaut).
 
-    2. **Attente du retour** : l'automatisation attend que l'entité de retour
-       (ex. un `device_tracker` Wi-Fi, plus rapide que le GPS) passe à
-       « home ».
+    2. **Attente du retour** : l'automatisation attend que la même entité
+       repasse à « home ».
 
     3. **Retour** : s'il fait noir (soleil sous l'élévation réglée), les
        lumières s'allument.
@@ -32,11 +31,11 @@ blueprint:
       name: Présence
       icon: mdi:account-arrow-right
       input:
-        entite_depart:
-          name: Entité de départ
+        entite_presence:
+          name: Entité de présence
           description: >
-            Entité qui détermine le départ. Une entité `person` est recommandée
-            (combine GPS et Wi-Fi, peu de fausses absences).
+            Entité qui détermine le départ et le retour (`person` ou
+            `device_tracker`).
           selector:
             entity:
               filter:
@@ -49,18 +48,6 @@ blueprint:
             minutes: 15
           selector:
             duration: {}
-        entite_retour:
-          name: Entité de retour
-          description: >
-            Entité qui détecte le retour. Un `device_tracker` Wi-Fi (routeur)
-            réagit souvent plus vite que le GPS. Peut être la même que
-            l'entité de départ.
-          selector:
-            entity:
-              filter:
-                - domain:
-                    - person
-                    - device_tracker
         attente_max:
           name: Durée maximale d'absence
           description: Au-delà, l'automatisation cesse d'attendre le retour.
@@ -123,7 +110,7 @@ variables:
 
 triggers:
   - trigger: state
-    entity_id: !input entite_depart
+    entity_id: !input entite_presence
     to: not_home
     for: !input duree_absence
 
@@ -139,7 +126,7 @@ actions:
 
   - wait_for_trigger:
       - trigger: state
-        entity_id: !input entite_retour
+        entity_id: !input entite_presence
         to: home
     timeout: !input attente_max
     continue_on_timeout: false
