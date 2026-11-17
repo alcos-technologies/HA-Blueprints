@@ -189,7 +189,7 @@ blueprint:
       input:
         normal_actif:
           name: Activer le profil normal (entre les seuils)
-          default: true
+          default: false
           selector:
             boolean: {}
         pn_motion:
